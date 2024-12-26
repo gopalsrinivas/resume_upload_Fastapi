@@ -5,10 +5,20 @@ from typing import List
 
 
 class CareerUserCreate(BaseModel):
-    name: str = Field(..., description="User's full name")
-    email: EmailStr = Field(..., description="User's email")
-    mobile: str = Field(..., description="User's mobile")
-    resume_file: str = Field(..., description="Uploaded resume filename")
+    name: str
+    email: EmailStr
+    mobile: str
+    resume_file: str
+
+    class Config:
+        from_attributes = True
+
+
+class CareerUserUpdate(BaseModel):
+    name: Optional[str]
+    email: Optional[str]
+    mobile: Optional[str]
+    is_active: Optional[bool]
 
     class Config:
         from_attributes = True

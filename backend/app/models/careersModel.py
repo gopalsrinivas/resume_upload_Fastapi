@@ -11,7 +11,7 @@ class CareersUsers(Base):
     email = Column(String(150), unique=True, index=True)
     mobile = Column(String(150), unique=True, index=True)
     resume_filename = Column(String(500))
-    is_active = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
     created_on = Column(DateTime, default=func.now(), nullable=False)
     updated_on = Column(DateTime, onupdate=func.now())
 

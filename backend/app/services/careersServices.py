@@ -103,7 +103,7 @@ async def get_all_users(db: AsyncSession, skip: int = 0, limit: int = 10):
         raise HTTPException(status_code=500, detail="Failed to fetch users.")
 
 
-async def get_user_by_id(db: AsyncSession, id: int):
+async def get_careeruser_by_id(db: AsyncSession, id: int):
     try:
         logging.info(f"Fetching user with ID: {id}")
 
@@ -119,3 +119,72 @@ async def get_user_by_id(db: AsyncSession, id: int):
     except Exception as e:
         logging.error(f"Error retrieving user by ID {id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error retrieving user: {str(e)}")
+
+
+async def update_careeruser(
+    db: AsyncSession, id: int, update_data: dict, file: UploadFile = None
+):
+    try:
+        logging.info(f"Attempting to update user with user_id: {id}")
+
+        # Fetch user from the database
+        result = await db.execute(
+            select(CareersUsers).filter(
+                CareersUsers.id == id, CareersUsers.is_active == True
+            )
+        )
+        user = result.scalar_one_or_none()
+
+        if not user:
+            logging.warning(f"User with id: {id} not found.")
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Handle file upload if provided
+        if file:
+            file_name = f"{user.user_id}_{file.filename}"
+            file_url = await upload_file_to_s3(file, file_name)
+            user.resume_filename = file_url
+            logging.info(f"File uploaded successfully. File URL: {file_url}")
+
+        # Update user attributes
+        for key, value in update_data.items():
+            setattr(user, key, value)
+
+        await db.commit()
+        await db.refresh(user)
+        logging.info(f"User with id: {id} updated successfully.")
+        return user
+
+    except HTTPException as http_exc:
+        logging.error(f"HTTP Exception: {http_exc.detail}")
+        raise http_exc
+    except Exception as e:
+        logging.exception(f"Unexpected error while updating user: {e}")
+        raise HTTPException(status_code=500, detail="Error updating user")
+
+
+async def soft_delete_careeruser(db: AsyncSession, id: int):
+    try:
+        logging.info(f"Attempting to soft delete user with user_id: {id}")
+
+        # Fetch user from the database
+        result = await db.execute(select(CareersUsers).filter(CareersUsers.id == id))
+        user = result.scalar_one_or_none()
+
+        # If the user is not found, raise 404 error
+        if not user:
+            logging.warning(f"User with id: {id} not found.")
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Mark the user as inactive (soft delete)
+        user.is_active = False
+        await db.commit()
+
+        logging.info(f"User with id: {id} soft deleted successfully.")
+        return {"message": "User soft deleted successfully"}
+    except HTTPException as http_exc:
+        logging.error(f"HTTPException occurred: {http_exc.detail}")
+        raise http_exc
+    except Exception as e:
+        logging.exception(f"Unexpected error while soft deleting user: {e}")
+        raise HTTPException(status_code=500, detail="Error deleting user")
