@@ -1,0 +1,39 @@
+services:
+  fastapi-dev:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: fastapi_resume_upload_backend_dev_img
+    container_name: fastapi_resume_upload_backend_dev_container
+    ports:
+      - "8000:8000"
+    environment:
+      POSTGRES_USER: gopal
+      POSTGRES_PASSWORD: gopal
+      POSTGRES_DB: fastapi_resume_upload_aws
+      DATABASE_URL: postgresql+asyncpg://gopal:gopal@postgres-dev:5432/fastapi_resume_upload_aws # Use container name here
+    depends_on:
+      - postgres-dev
+    volumes:
+      - ./backend:/backend
+    entrypoint:
+      [
+        "sh",
+        "-c",
+        "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload",
+      ]
+
+  postgres-dev:
+    image: postgres:17.2
+    container_name: postgres_dev_container
+    environment:
+      POSTGRES_USER: gopal
+      POSTGRES_PASSWORD: gopal
+      POSTGRES_DB: fastapi_resume_upload_aws
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+
+volumes:
+  postgres_data_dev:

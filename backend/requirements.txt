@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+asyncpg
+psycopg2-binary
+pydantic-settings
+sqlalchemy
+pydantic[email]
+alembic
+boto3
+python-multipart
