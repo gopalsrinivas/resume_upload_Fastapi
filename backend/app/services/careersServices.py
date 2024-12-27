@@ -5,6 +5,7 @@ from sqlalchemy.sql import func, and_
 from app.models.careersModel import CareersUsers
 from app.services.s3_upload import upload_file_to_s3
 from app.core.logging import logging
+from typing import Optional
 
 
 async def generate_user_id(db: AsyncSession) -> str:
@@ -122,12 +123,12 @@ async def get_careeruser_by_id(db: AsyncSession, id: int):
 
 
 async def update_careeruser(
-    db: AsyncSession, id: int, update_data: dict, file: UploadFile = None
-):
+    db: AsyncSession, id: int, update_data: dict, file: Optional[UploadFile] = None
+) -> CareersUsers:
     try:
-        logging.info(f"Attempting to update user with user_id: {id}")
+        logging.info(f"Starting the update process for user with ID: {id}.")
 
-        # Fetch user from the database
+        # Fetch the user from the database
         result = await db.execute(
             select(CareersUsers).filter(
                 CareersUsers.id == id, CareersUsers.is_active == True
@@ -136,31 +137,42 @@ async def update_careeruser(
         user = result.scalar_one_or_none()
 
         if not user:
-            logging.warning(f"User with id: {id} not found.")
             raise HTTPException(status_code=404, detail="User not found")
 
-        # Handle file upload if provided
+        logging.info(f"User found with ID: {id}. Proceeding with update.")
+
+        # Upload new resume file if provided
         if file:
-            file_name = f"{user.user_id}_{file.filename}"
-            file_url = await upload_file_to_s3(file, file_name)
-            user.resume_filename = file_url
-            logging.info(f"File uploaded successfully. File URL: {file_url}")
+            try:
+                file_name = f"{user.user_id}_{file.filename}"
+                file_url = await upload_file_to_s3(file, file_name)
+                user.resume_filename = file_url
+                logging.info(f"File uploaded successfully: {file_url}")
+            except Exception as e:
+                logging.error(f"Error uploading file: {e}")
+                raise HTTPException(status_code=500, detail="File upload failed")
 
-        # Update user attributes
+        # Update other fields dynamically
         for key, value in update_data.items():
-            setattr(user, key, value)
+            if hasattr(user, key):
+                setattr(user, key, value)
+            else:
+                logging.warning(f"Attempted to update invalid field: {key}")
 
+        # Commit the changes to the database
         await db.commit()
         await db.refresh(user)
-        logging.info(f"User with id: {id} updated successfully.")
+
+        logging.info(f"User with ID: {id} updated successfully.")
         return user
 
-    except HTTPException as http_exc:
-        logging.error(f"HTTP Exception: {http_exc.detail}")
-        raise http_exc
+    except HTTPException as e:
+        logging.error(f"HTTP Exception occurred: {e.detail}")
+        raise e
+
     except Exception as e:
-        logging.exception(f"Unexpected error while updating user: {e}")
-        raise HTTPException(status_code=500, detail="Error updating user")
+        logging.error(f"Unexpected error occurred: {e}")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
 
 async def soft_delete_careeruser(db: AsyncSession, id: int):

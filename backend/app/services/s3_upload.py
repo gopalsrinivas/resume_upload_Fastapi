@@ -14,14 +14,26 @@ s3_client = boto3.client(
 
 
 async def upload_file_to_s3(file: UploadFile, file_name: str) -> str:
-
     logging.info(
         f"Attempting to upload file '{file.filename}' to S3 bucket '{settings.AWS_BUCKET}' with name '{file_name}'."
     )
 
     try:
-        # Attempt to upload the file to S3
-        s3_client.upload_fileobj(file.file, settings.AWS_BUCKET, file_name)
+        # Check if the file already exists in the S3 bucket
+        try:
+            s3_client.head_object(Bucket=settings.AWS_BUCKET, Key=file_name)
+            logging.info(f"File '{file_name}' already exists. It will be replaced.")
+        except ClientError as e:
+            # If the file does not exist, it will throw a "Not Found" error (404)
+            if e.response["Error"]["Code"] == "404":
+                logging.info(f"File '{file_name}' does not exist. Uploading new file.")
+            else:
+                raise
+
+        # Attempt to upload the file to S3 (this will overwrite the existing file)
+        with file.file as f:
+            s3_client.upload_fileobj(f, settings.AWS_BUCKET, file_name)
+
         file_url = f"https://{settings.AWS_BUCKET}.s3.{settings.AWS_REGION}.amazonaws.com/{file_name}"
         logging.info(f"File uploaded successfully. File URL: {file_url}")
         return file_url

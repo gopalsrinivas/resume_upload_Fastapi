@@ -2,6 +2,7 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import datetime
 from typing import List
+from fastapi import UploadFile
 
 
 class CareerUserCreate(BaseModel):
@@ -19,6 +20,7 @@ class CareerUserUpdate(BaseModel):
     email: Optional[str]
     mobile: Optional[str]
     is_active: Optional[bool]
+    resume_file: Optional[UploadFile]
 
     class Config:
         from_attributes = True

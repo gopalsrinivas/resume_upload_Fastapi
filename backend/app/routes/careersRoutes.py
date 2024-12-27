@@ -129,48 +129,57 @@ async def get_user_by_id_route(id: int, db: AsyncSession = Depends(get_db)):
         return {"msg": "Internal server error", "status_code": 500, "data": None}
 
 
-@router.put("/{id}", summary="Update User Details")
-async def update_careeruser_details(
+@router.put("/{id}/", summary="Update Career User")
+async def update_user(
     id: int,
-    name: str = Form(None),
-    email: str = Form(None),
-    mobile: str = Form(None),
-    resume_file: UploadFile = File(None),
+    name: str = Form(None, description="User's full name"),
+    email: str = Form(None, description="User's email address"),
+    mobile: str = Form(None, description="User's mobile number"),
+    is_active: bool = Form(None, description="User active status"),
+    resume_file: UploadFile = File(None, description="Resume file upload"),
     db: AsyncSession = Depends(get_db),
 ):
-    try:
-        update_data = {}
-        if name:
-            update_data["name"] = name
-        if email:
-            update_data["email"] = email
-        if mobile:
-            update_data["mobile"] = mobile
+    update_data = {
+        "name": name,
+        "email": email,
+        "mobile": mobile,
+        "is_active": is_active,
+    }
 
-        updated_user = await update_careeruser(
+    # Remove fields with `None` values
+    update_data = {k: v for k, v in update_data.items() if v is not None}
+
+    try:
+        logging.info(f"Starting update process for user ID: {id}")
+        user = await update_careeruser(
             db, id=id, update_data=update_data, file=resume_file
         )
+        logging.info(f"Update process completed successfully for user ID: {id}")
 
         return {
             "status_code": 200,
             "message": "User updated successfully.",
             "user_data": {
-                "id": updated_user.id,
-                "user_id": updated_user.user_id,
-                "name": updated_user.name,
-                "email": updated_user.email,
-                "mobile": updated_user.mobile,
-                "resume_filename": updated_user.resume_filename,
-                "is_active": updated_user.is_active,
-                "created_on": updated_user.created_on,
-                "updated_on": updated_user.updated_on,
+                "id": user.id,
+                "user_id": user.user_id,
+                "name": user.name,
+                "email": user.email,
+                "mobile": user.mobile,
+                "resume_filename": user.resume_filename,
+                "is_active": user.is_active,
+                "created_on": user.created_on,
+                "updated_on": user.updated_on,
             },
         }
 
     except HTTPException as http_exc:
+        logging.error(f"Error in update route for user ID: {id}: {http_exc.detail}")
         raise http_exc
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail="Error updating user.")
+    except Exception as e:
+        logging.exception(f"Unexpected error in update route for user ID: {id}: {e}")
+        raise HTTPException(
+            status_code=500, detail="Unexpected error occurred in update route"
+        )
 
 
 @router.delete("/{id}", summary="Soft Delete a User")
